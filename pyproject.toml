@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trackastra-galaxy"
+version = "0.1.0"
+description = "Standalone Python CLI wrapper around Trackastra for segmentation and tracking on OME-Zarr data"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+  { name = "Vladimír", email = "ulman@fi.muni.cz" },
+  { name = "Khaled", email = "k.jumah@bradford.ac.uk" }
+]
+dependencies = [
+  "numpy",
+  "ome-zarr>=0.14.0,<0.15",
+  "scikit-image",
+  "cellpose<4.0",
+  "trackastra>0.5"
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+  "Topic :: Scientific/Engineering :: Image Processing"
+]
+
+[project.urls]
+Homepage = "https://github.com/bioinfbrad/trackastra-galaxy"
+Source = "https://github.com/bioinfbrad/trackastra-galaxy"
+Issues = "https://github.com/bioinfbrad/trackastra-galaxy/issues"
+
+[project.scripts]
+trackastra-galaxy = "trackastra_galaxy.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
