@@ -5,7 +5,7 @@
 **Trackastra** is a deep learning-based tool for tracking cell instances in time-lapse microscopy images. It combines:
 - **Cellpose**: For automatic cell segmentation. This is an optional step when no segmentation is yet available.
 - **Trackastra**: For transformer-based cell tracking across time.
-- **OME-zarr**: For reading the input OME-zarr.
+- **ome-zarr**: For reading the input OME-Zarr.
 - **GEFF**: For storing the tracking result. [GEFF](https://liveimagetrackingtools.org/geff/latest/) is supported, e.g., in napari.
 
 This Galaxy wrapper enables easy access to cell tracking workflows without requiring command-line expertise.
@@ -14,7 +14,7 @@ The tool is designed to not require GPU. It may thus show prolonged running time
 as "only" Cellpose v3 (the pre-SAM variant) is used as well as Trackastra is operated in the "greedy" (CPU-friendly) mode.
 
 It is worthwhile to consider downscaling the input data. This can be achieved by choosing a lower resolution level of
-the input data (as zarr datasets often provide downscaled copies next to the full resolution data), and/or requesting
+the input data (as OME-Zarr datasets often provide downscaled copies next to the full resolution data), and/or requesting
 downscale factor (per each dimension), in which case this tool will accordingly downscale before (segmentation) and tracking.
 The former is controlled with the `scale_level` parameter, and the latter with the `downscale_` parameters; it is allowed
 to combine all of them. The tracking result is stored at the resolution level defined with the `scale_level`.
@@ -27,7 +27,7 @@ the segmentation result is not saved anywhere.
 
 ### Input Data
 
-- **Zarr dataset**: Time-series images in NGFF-compliant zarr format, also known as OME-zarr.
+- **OME-Zarr dataset**: Time-series images in NGFF-compliant zarr format, often referred to as OME-Zarr.
   - Either, it must have dimensions 2D+t: `t` (time), `y` (rows), `x` (columns)
   - Or, it must have dimensions 3D+t: `t` (time), `z` (depth), `y` (rows), `x` (columns)
   - It must show whole nuclei or cells
@@ -87,7 +87,7 @@ python trackastra_wrapper.py track \
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `zarr_path` | Required | URL (https://..., s3://...) or local path to OME-Zarr dataset |
-| `scale_level` | 0 | Pyramid level in zarr (0 = finest/best resolution) |
+| `scale_level` | 0 | Pyramid level in OME-Zarr (0 = finest/best resolution) |
 | `downscale_x`, `downscale_y`, `downscale_z` | 1.0 | Spatial downscaling factors (>1 reduces resolution for speed) |
 | `start_tp` | 0 | First time frame to process (0-indexed) |
 | `end_tp` | -1 | Last time frame to process (-1 = all frames) |
@@ -97,7 +97,7 @@ python trackastra_wrapper.py track \
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `channel_coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select raw image channel in multi-dimensional zarr |
+| `channel_coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select raw image channel in multi-dimensional OME-Zarr |
 | `segmentation_model` | `cyto3` | Cellpose v3 model: `cyto3`, `cyto2`, or `nuclei` |
 
 ### Track Only Mode Only
@@ -107,9 +107,9 @@ python trackastra_wrapper.py track \
 | `raw_channel_coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select raw image channel |
 | `seg_channel_coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select segmentation channel |
 
-### Multi-Dimensional Zarr Navigation
+### Multi-Dimensional OME-Zarr Navigation
 
-For zarr datasets with extra dimensions beyond `tzyx` (or `tyx` for 2D time-lapse):
+For OME-Zarr datasets with extra dimensions beyond `tzyx` (or `tyx` for 2D time-lapse):
 - Provide integer coordinates for each extra dimension
 - Example: 6D data `(t, view, domain, z, y, x)` needs coordinates like `"0 1"` to select view=0, domain=1
 - Use space or comma separation: `"0 1"` or `"0,1"`
@@ -123,7 +123,7 @@ The folder is created in the working directory and automatically copied to the G
 
 ## Remote Data Access
 
-The tool supports various zarr data sources:
+The tool supports various OME-Zarr data sources:
 
 ```bash
 # Activate environment
@@ -172,7 +172,7 @@ python trackastra_wrapper.py track --zarr_path ... --raw_channel_coords ... --se
 All coordinates and numerical parameters are validated before execution.
 Errors print to stderr with appropriate exit codes for Galaxy error detection.
 
-## Online Zarr Datasets
+## Online OME-Zarr Datasets
 
 Ready-to-use test datasets from IDR (Image Data Resource):
 
@@ -197,14 +197,14 @@ This dataset can be used directly as zarr_path for testing without downloading.
 - Useful for validating parameters before processing entire time series
 
 **Pyramid Levels**:
-- Zarr datasets often have multi-resolution pyramids
+- OME-Zarr datasets often have multi-resolution pyramids
 - Level 0 = finest resolution (slowest, most accurate)
 - Higher levels = downsampled versions (faster)
 - Default level 0 is recommended
 
 **Channel/Dimension Coordinates**:
-- If zarr has extra dimensions beyond tzyx (e.g., tchannel,z,y,x), use coordinate indices
-- Example: for tchannel,z,y,x format use `--channel_coords 0` to select the first channel
+- If OME-Zarr has extra dimensions beyond tzyx (e.g., time,channel,z,y,x), use coordinate indices
+- Example: for time,*channel*,z,y,x format use `--channel_coords 0` to select the first *channel*
 - Multiple coordinates use space or comma separation: `0 1` or `0,1`
 
 ## Troubleshooting
@@ -212,7 +212,7 @@ This dataset can be used directly as zarr_path for testing without downloading.
 ### Common Issues and Solutions
 
 **"Scale index negative or larger than available resolutions"**
-- The requested pyramid level doesn't exist in the zarr
+- The requested pyramid level doesn't exist in the OME-Zarr
 - Solution: Use `--scale_level 0` (default, safest option)
 
 **Memory errors on large datasets**
