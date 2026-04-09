@@ -198,8 +198,8 @@ This dataset can be used directly as zarr_path for testing without downloading.
 
 **Pyramid Levels**:
 - OME-Zarr datasets often have multi-resolution pyramids
-- Level 0 = finest resolution (slowest, most accurate)
-- Higher levels = downsampled versions (faster)
+- Level 0 = finest resolution (slowest, largest, most accurate)
+- Higher levels = downsampled versions (faster, smaller)
 - Default level 0 is recommended
 
 **Channel/Dimension Coordinates**:
@@ -213,7 +213,9 @@ This dataset can be used directly as zarr_path for testing without downloading.
 
 **"Scale index negative or larger than available resolutions"**
 - The requested pyramid level doesn't exist in the OME-Zarr
-- Solution: Use `--scale_level 0` (default, safest option)
+- Solutions:
+  - Use `--scale_level 0` (default, safest option)
+  - If the data is still too large, consider the --downscale options
 
 **Memory errors on large datasets**
 - The downscaled data is still too large for available memory
