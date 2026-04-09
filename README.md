@@ -6,7 +6,9 @@
 - **Cellpose**: For automatic cell segmentation. This is an optional step when no segmentation is yet available.
 - **Trackastra**: For transformer-based cell tracking across time.
 - **ome-zarr**: For reading the input OME-Zarr.
-- **GEFF**: For storing the tracking result. [GEFF](https://liveimagetrackingtools.org/geff/latest/) is supported, e.g., in napari.
+- **CellTrackingChallenge**: For storing the tracking result in
+  [CTC format](http://public.celltrackingchallenge.net/documents/Naming%20and%20file%20content%20conventions.pdf),
+  which is supported, e.g., in [napari](https://napari.org/stable/) or [Mastodon (Fiji)](https://mastodon.readthedocs.io/en/latest/).
 
 This Galaxy wrapper enables easy access to cell tracking workflows without requiring command-line expertise.
 
@@ -260,6 +262,8 @@ If you use Trackastra in published research, please cite:
 - [NGFF Zarr Spec](https://ngff.openmicroscopy.org/)
 - [Trackastra Documentation](https://github.com/QuantumAstronomy/trackastra)
 - [Cellpose Documentation](https://cellpose.readthedocs.io/)
-- [GEFF Documentation](https://liveimagetrackingtools.org/geff/latest/)
+- [Cell Tracking Challenge](https://celltrackingchallenge.net/)
+- [napari-ctc-io](https://github.com/bentaculum/napari-ctc-io)
+- [Mastodon CTC plugin](https://github.com/mastodon-sc/mastodon-ctc)
 - [ngff-zarr Documentation](https://ngff-zarr.readthedocs.io/en/latest/)
 - [Galaxy Tool Development](https://docs.galaxyproject.org/en/master/dev/schema.html)
