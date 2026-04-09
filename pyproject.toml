@@ -14,8 +14,7 @@ authors = [
   { name = "Khaled", email = "k.jumah@bradford.ac.uk" }
 ]
 dependencies = [
-  "numpy",
-  "ome-zarr>=0.14.0,<0.15",
+  "ome-zarr>=0.14.0",
   "scikit-image",
   "cellpose<4.0",
   "trackastra>0.5"

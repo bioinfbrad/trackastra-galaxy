@@ -39,10 +39,12 @@ the segmentation result is not saved anywhere.
 
 ### Software Dependencies
 
-Managed via `pixi.toml`:
-- `trackastra >= 0.5.0` (version with GEFF support)
+The main Python dependencies are the following:
+- `trackastra > 0.5`
 - `cellpose < 4.0`
-- `ome-zarr >= 0.14.0,<0.15`
+- `ome-zarr >= 0.14.0`
+
+All of which, including their transitive dependencies, are available on the `conda-forge` channel.
 
 ## Usage Modes
 
