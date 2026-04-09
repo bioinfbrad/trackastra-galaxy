@@ -16,25 +16,25 @@ def parse_coords(coord_string: str) -> list[int]:
     if isinstance(coord_string, str):
         coords = coord_string.replace(",", " ").split()
         return [int(c) for c in coords if c.strip()]
-    return [int(coord_string)] if coord_string else [0]
+    return [int(coord_string)] if coord_string else []
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="trackastra-galaxy",
-        description="Trackastra: track cell instances in time-lapse movies",
+        description="Trackastra: track cell instances in time-lapse imaging",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Segment and track from a zarr dataset
   trackastra-galaxy segment_and_track \\
     --zarr-path /path/to/data.zarr \\
-    --result-path result_ctc
+    --result-path /path/to/result_ctc
 
   # Track with pre-existing segmentation
   trackastra-galaxy track \\
     --zarr-path /path/to/data.zarr \\
-    --result-path result_ctc
+    --result-path /path/to/result_ctc
 """,
     )
 
@@ -53,13 +53,13 @@ Examples:
         "--scale-level",
         type=int,
         default=0,
-        help="Pyramid scale level to use (default: 0 = highest resolution)",
+        help="Pyramid scale level to use (default: 0 (highest resolution))",
     )
     seg_track_parser.add_argument(
-        "--channel-coords",
+        "--raw-channel-coords",
         type=str,
         default="0",
-        help="Coordinates to select non-tzyx dimensions (comma/space-separated, default: 0)",
+        help="Coordinates to select raw data, non-tzyx dimensions (comma/space-separated, default: 0)",
     )
     seg_track_parser.add_argument(
         "--result-path",
@@ -94,20 +94,20 @@ Examples:
         "--end-tp",
         type=int,
         default=-1,
-        help="Ending time point (default: -1 = all)",
+        help="Ending time point (default: -1 (the end of the time-lapse))",
     )
     seg_track_parser.add_argument(
         "--segmentation-model",
         type=str,
         default="cyto3",
         choices=["cyto3", "cyto2", "nuclei"],
-        help="Cellpose segmentation model to use (default: cyto3)",
+        help="Cellpose v3 segmentation model to use (default: cyto3)",
     )
     seg_track_parser.add_argument(
         "--objects-diameter-px",
         type=int,
         default=25,
-        help="Expected object diameter in pixels for Cellpose (default: 25)",
+        help="Expected object diameter in pixels for Cellpose v3 (default: 25)",
     )
     seg_track_parser.add_argument(
         "--tracking-model",
@@ -129,19 +129,19 @@ Examples:
         "--scale-level",
         type=int,
         default=0,
-        help="Pyramid scale level to use (default: 0 = highest resolution)",
+        help="Pyramid scale level to use (default: 0 (highest resolution))",
     )
     track_parser.add_argument(
         "--raw-channel-coords",
         type=str,
         default="0",
-        help="Coordinates to select raw data non-tzyx dimensions (comma/space-separated, default: 0)",
+        help="Coordinates to select raw data, non-tzyx dimensions (comma/space-separated, default: 0)",
     )
     track_parser.add_argument(
         "--seg-channel-coords",
         type=str,
-        default="0",
-        help="Coordinates to select segmentation non-tzyx dimensions (comma/space-separated, default: 0)",
+        default="1",
+        help="Coordinates to select segmentation, non-tzyx dimensions (comma/space-separated, default: 1)",
     )
     track_parser.add_argument(
         "--result-path",
@@ -176,7 +176,7 @@ Examples:
         "--end-tp",
         type=int,
         default=-1,
-        help="Ending time point (default: -1 = all)",
+        help="Ending time point (default: -1 (the end of the time-lapse))",
     )
     track_parser.add_argument(
         "--tracking-model",
@@ -204,25 +204,25 @@ def main() -> int:
         tracking_options["segmentation_model"] = args.segmentation_model
         tracking_options["objects_diameter_px"] = args.objects_diameter_px
 
-        channel_coords = parse_coords(args.channel_coords)
+        raw_channel_coords = parse_coords(args.raw_channel_coords)
         segment_and_track_entry(
             zarr_path=args.zarr_path,
             scale_level=args.scale_level,
-            list_of_coords_for_non_tzyx_dims_to_reach_raw_channel=channel_coords,
+            list_of_coords_for_non_tzyx_dims_to_reach_raw_channel=raw_channel_coords,
             result_path=args.result_path,
             tracking_options=tracking_options,
         )
-        print("Tracking completed successfully")
+        print("Segmentation and Tracking completed successfully")
         return 0
 
     if args.command == "track":
-        raw_coords = parse_coords(args.raw_channel_coords)
-        seg_coords = parse_coords(args.seg_channel_coords)
+        raw_ch_coords = parse_coords(args.raw_channel_coords)
+        seg_ch_coords = parse_coords(args.seg_channel_coords)
         track_entry(
             zarr_path=args.zarr_path,
             scale_level=args.scale_level,
-            list_of_coords_for_non_tzyx_dims_to_reach_raw_channel=raw_coords,
-            list_of_coords_for_non_tzyx_dims_to_reach_seg_channel=seg_coords,
+            list_of_coords_for_non_tzyx_dims_to_reach_raw_channel=raw_ch_coords,
+            list_of_coords_for_non_tzyx_dims_to_reach_seg_channel=seg_ch_coords,
             result_path=args.result_path,
             tracking_options=tracking_options,
         )
