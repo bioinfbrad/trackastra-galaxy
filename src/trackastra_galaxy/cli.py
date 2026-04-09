@@ -26,12 +26,12 @@ def build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Segment and track from a zarr dataset
-  trackastra-galaxy segment_and_track \\
+  # Segment and track from a zarr dataset, minimal example:
+  trackastra-galaxy segment-and-track \\
     --zarr-path /path/to/data.zarr \\
     --result-path /path/to/result_ctc
 
-  # Track with pre-existing segmentation
+  # Track with pre-existing segmentation, minimal example:
   trackastra-galaxy track \\
     --zarr-path /path/to/data.zarr \\
     --result-path /path/to/result_ctc
@@ -41,7 +41,7 @@ Examples:
     subparsers = parser.add_subparsers(dest="command", help="Available commands", required=True)
 
     seg_track_parser = subparsers.add_parser(
-        "segment_and_track",
+        "segment-and-track",
         help="Segment cells and perform tracking",
     )
     seg_track_parser.add_argument(
@@ -200,7 +200,7 @@ def main() -> int:
     tracking_options["end_at_tp"] = args.end_tp
     tracking_options["tracking_model"] = args.tracking_model
 
-    if args.command == "segment_and_track":
+    if args.command == "segment-and-track":
         tracking_options["segmentation_model"] = args.segmentation_model
         tracking_options["objects_diameter_px"] = args.objects_diameter_px
 
