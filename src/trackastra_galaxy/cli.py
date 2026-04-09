@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from .core import (
+from .trackastra_galaxy import (
     default_tracking_options,
     segment_and_track_entry,
     track_entry,

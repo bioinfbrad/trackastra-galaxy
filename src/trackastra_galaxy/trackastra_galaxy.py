@@ -382,7 +382,7 @@ def track_entry(
     # NB: now both *_data_view are guaranteed to be ordered as tzyx
     #     and it is truly an unmodified view (not scaled, not trimmed)
 
-    raw, seg = resize_inputs(raw_data_view, seg_data_view, tracking_options)
+    raw, seg = resize(raw_data_view, seg_data_view, tracking_options)
     track_graph = tracking(raw, seg, tracking_options)
     upscale_timeshift_save(track_graph, seg, result_path, tracking_options)
     return track_graph
