@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "trackastra-galaxy"
-version = "0.1.0"
+version = "1.0.0"
 description = "Standalone Python CLI wrapper around Trackastra for segmentation and tracking on OME-Zarr data"
 readme = "README.md"
 requires-python = ">=3.10"
