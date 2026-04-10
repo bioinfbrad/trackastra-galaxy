@@ -8,21 +8,20 @@
 - **ome-zarr**: For reading the input OME-Zarr.
 - **CellTrackingChallenge**: For storing the tracking result in
   [CTC format](http://public.celltrackingchallenge.net/documents/Naming%20and%20file%20content%20conventions.pdf),
-  which is supported, e.g., in [napari](https://napari.org/stable/) or [Mastodon (Fiji)](https://mastodon.readthedocs.io/en/latest/).
+  which is supported, e.g., in [napari](https://napari.org/stable/), [TrackMate](https://imagej.net/plugins/trackmate/)
+  or [Mastodon (Fiji)](https://mastodon.readthedocs.io/en/latest/).
 
-This Galaxy wrapper enables easy access to cell tracking workflows without requiring command-line expertise.
-
-The tool is designed to not require GPU. It may thus show prolonged running times. It may also show slightly sub-optimal results
-as "only" Cellpose v3 (the pre-SAM variant) is used as well as Trackastra is operated in the "greedy" (CPU-friendly) mode.
+The tool is designed not to require a GPU. It may thus show prolonged running times. It may also show slightly sub-optimal results
+as "only" Cellpose v3 (the pre-SAM variant) is used, and Trackastra is operated in the "greedy" (CPU-friendly) mode.
 
 It is worthwhile to consider downscaling the input data. This can be achieved by choosing a lower resolution level of
 the input data (as OME-Zarr datasets often provide downscaled copies next to the full resolution data), and/or requesting
-downscale factor (per each dimension), in which case this tool will accordingly downscale before (segmentation) and tracking.
-The former is controlled with the `--scale-level` parameter, and the latter with the `downscale-[xyz]` parameters; it is allowed
+downscale factor (per each spatial dimension), in which case this tool will accordingly downscale before (segmentation and) tracking.
+The former is controlled with the `--scale-level` parameter, and the latter with the `--downscale-[xyz]` parameters; it is allowed
 to combine all of them. The tracking result is stored at the resolution level defined with the `--scale-level`.
 
-Even when segmentation result is provided, Trackastra in any case requires also the original raw images for the tracking.
-If the segmentation is not provided, this tool offers to use Cellpose v3 to carry out the segmentation prior the tracking;
+Even when the segmentation result is provided, Trackastra still requires the original raw images for tracking.
+If the segmentation is not provided, this tool offers to use Cellpose v3 to carry out the segmentation prior to the tracking;
 the segmentation result is not saved anywhere.
 
 ## Requirements
@@ -33,9 +32,9 @@ the segmentation result is not saved anywhere.
   - Either, it must have dimensions 2D+t: `t` (time), `y` (rows), `x` (columns)
   - Or, it must have dimensions 3D+t: `t` (time), `z` (depth), `y` (rows), `x` (columns)
   - It must show whole nuclei or cells
-  - It may have additional channel with segmentation of the cells
+  - It may have additional channel with segmentation of the nuclei or cells
   - It may have extra dimensions (e.g., multiple channels, which can be selected via coordinates)
-  - Data type: optimally uint16 (16-bit unsigned integer)
+  - Data type: optimally *uint16* (16-bit unsigned integer)
 
 ### Software Dependencies
 
@@ -63,7 +62,7 @@ trackastra-galaxy segment-and-track \
     --start-tp 0 \
     --end-tp -1 \
     --segmentation-model cyto3 \
-	 --objects-diameter-px \
+    --objects-diameter-px \
     --tracking-model ctc \
     --result-path /local/path/to/folder/result_ctc
 ```
@@ -97,7 +96,7 @@ trackastra-galaxy track \
 | `--scale-level` | 0 | Pyramid level in OME-Zarr (0 = finest/best resolution) |
 | `--downscale-x`, `downscale-y`, `downscale-z` | 1.0 | Spatial downscaling factors (>1 reduces resolution for speed) |
 | `--start-tp` | 0 | First time frame to process (0-indexed) |
-| `--end-tp` | -1 | Last time frame to process (-1 = all frames) |
+| `--end-tp` | -1 | Last time frame to process (0-indexed, -1 signals to use all frames) |
 | `--tracking-model` | `ctc` | Trackastra tracking model identifier |
 | `--result-path` | Required | Folder to be created and populated with .tif files according to the [CTC format](http://public.celltrackingchallenge.net/documents/Naming%20and%20file%20content%20conventions.pdf) |
 
@@ -107,14 +106,14 @@ trackastra-galaxy track \
 |-----------|---------|-------------|
 | `--raw-channel-coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select raw image channel in multi-dimensional OME-Zarr |
 | `--segmentation-model` | `cyto3` | Cellpose v3 model: `cyto3`, `cyto2`, or `nuclei` |
-| `--objects-diameter-px` | `cyto3` | Cellpose v3 model: `cyto3`, `cyto2`, or `nuclei` |
+| `--objects-diameter-px` | 25 | Expected object diameter in pixels for Cellpose v3 |
 
 ### Track Only Mode Only
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `--raw-channel-coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select raw image channel |
-| `--seg-channel-coords` | 0 | Non-tzyx coordinates (space or comma-separated) to select segmentation channel |
+| `--seg-channel-coords` | 1 | Non-tzyx coordinates (space or comma-separated) to select segmentation channel |
 
 ### Multi-Dimensional OME-Zarr Navigation
 
@@ -123,16 +122,23 @@ For OME-Zarr datasets with extra dimensions beyond `tzyx` (or `tyx` for 2D time-
 - Example: 6D data `(t, view, domain, z, y, x)` needs coordinates like `"0 1"` to select view=0, domain=1
 - Use space or comma separation: `"0 1"` or `"0,1"`
 
-## Output
+### Input and Remote Data Access
+
+The tool supports reading local and especially remote OME-Zarr datasets. That said, the `--zarr-path` input parameter
+accepts both a local path and a URL. The remote datasets can be hosted via
+- S3, e.g., `s3://janelia-cosem-datasets/jrc_mus-choroid-plexus-3/jrc_mus-choroid-plexus-3.zarr`
+- HTTP or HTTPS, e.g., `https://public.czbiohub.org/royerlab/zebrahub/imaging/multi-view/ZMNS001.ome.zarr`
+
+### Output
 
 The tool creates an output folder at `--result-path`, and populates it with `man_trackTTTT.tif` (`T`s represent zero-padded,
 4-digits time point) and `man_track.txt` files. This is the
 [CTC format](http://public.celltrackingchallenge.net/documents/Naming%20and%20file%20content%20conventions.pdf)
-for results of a tracking.
+for the results of tracking.
 
-## Remote Data Access
+## Tool Execution
 
-The tool supports various OME-Zarr data sources:
+### Command Line example
 
 ```bash
 # Activate environment
@@ -148,24 +154,41 @@ trackastra-galaxy segment-and-track \
 ls ctc_result_folder
 ```
 
-## Galaxy Integration
+All coordinates and numerical parameters are validated before execution.
+Errors print to stderr with appropriate exit codes for Galaxy error detection.
 
-### Command Line Interface
-
-The tool provides two subcommands for Galaxy:
+### Python API example
 
 **Segment and Track:**
-```
-trackastra-galaxy segment-and-track --zarr-path ... --raw-channel-coords ... --segmentation-model cyto3 ... --result-path ...
+```python
+from trackastra_galaxy import cli
+from trackastra_galaxy.trackastra_galaxy import default_tracking_options
+
+tops = default_tracking_options.copy()
+tops["segmentation_model"] = "cyto3"
+
+cli.segment_and_track_entry(
+  zarr_path = "test-data/sample_timelapse.zarr",
+  scale_level = 0,
+  list_of_coords_for_non_tzyx_dims_to_reach_raw_channel = [0],
+  result_path = "ctc_result_folder",
+  tracking_options = tops,
+)
 ```
 
 **Track Only:**
-```
-trackastra-galaxy track --zarr-path ... --raw-channel-coords ... --seg-channel-coords ... --result-path ...
-```
+```python
+from trackastra_galaxy import cli
+from trackastra_galaxy.trackastra_galaxy import default_tracking_options
 
-All coordinates and numerical parameters are validated before execution.
-Errors print to stderr with appropriate exit codes for Galaxy error detection.
+cli.track_entry(
+  zarr_path = "test-data/sample_timelapse.zarr",
+  scale_level = 0,
+  list_of_coords_for_non_tzyx_dims_to_reach_raw_channel = [0],
+  list_of_coords_for_non_tzyx_dims_to_reach_seg_channel = [1],
+  result_path = "ctc_result_folder",
+)
+```
 
 ## Online OME-Zarr Datasets
 
@@ -190,7 +213,7 @@ This dataset can be used directly as `--zarr-path` for testing without downloadi
 - Helpful for testing parameters on a subset
 - `--start-tp 0 --end-tp 5` processes frames 0-5 only, 6 frames in total
 - Use `-1` for `--end-tp` to flag that all frames should be used
-- Useful for validating parameters before processing entire time series
+- Useful for validating parameters before processing the entire time series
 
 **Pyramid Levels**:
 - OME-Zarr datasets often have multi-resolution pyramids
