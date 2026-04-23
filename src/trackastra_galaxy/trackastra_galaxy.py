@@ -98,15 +98,15 @@ def obtain_lazy_view_from_the_zarr_path(
 
 
 def resize(
-    view_into_raw_data,  # a numpy-like array
-    view_into_seg_data,  # a numpy-like array
+    view_into_data,  # a numpy-like array
     tracking_options: dict[str, Any] = default_tracking_options,
+    is_resizing_masks: bool = False,
 ):
     from skimage.transform import resize
 
     print(
-        f"provided input data: {view_into_raw_data.shape[0]} images of shape "
-        f"{view_into_raw_data.shape[1:]} pixels"
+        f"provided input data: {view_into_data.shape[0]} images of shape "
+        f"{view_into_data.shape[1:]} pixels"
     )
 
     # figure out the (possibly) downscaled spatial size (zyx axes)
@@ -116,7 +116,7 @@ def resize(
         tracking_options.get("downscale_factor_x", 1),
     ]
     new_spatial_size = [
-        ceil(size / scale) for size, scale in zip(view_into_raw_data[0].shape, down_scale_factors)
+        ceil(size / scale) for size, scale in zip(view_into_data[0].shape, down_scale_factors)
     ]
 
     do_scaling = min(down_scale_factors) != 1 or max(down_scale_factors) != 1
@@ -126,49 +126,33 @@ def resize(
     t_from = tracking_options.get("start_from_tp", 0)
     t_to = tracking_options.get("end_at_tp", -1)
     if t_to == -1:
-        t_to = view_into_raw_data.shape[0] - 1
+        t_to = view_into_data.shape[0] - 1
 
-    view_into_raw_data = view_into_raw_data[t_from : t_to + 1]
-    view_into_seg_data = view_into_seg_data[t_from : t_to + 1]
+    view_into_data = view_into_data[t_from : t_to + 1]
 
     print(
-        f"preparing new input data: {view_into_raw_data.shape[0]} images of shape "
+        f"preparing new input data: {view_into_data.shape[0]} images of shape "
         f"{new_spatial_size} pixels"
     )
 
-    # 'all_masks' will be in the new downscaled size, and the trimmed length!
-    print("memory allocation for segmentation results started...")
-    all_masks = np.empty((view_into_raw_data.shape[0], *new_spatial_size), dtype=view_into_seg_data.dtype)
-
+    # 'all_imgs' will be in the new downscaled size, and the trimmed length!
     print("memory allocation for raw images started...")
-    all_raws = np.empty((view_into_raw_data.shape[0], *new_spatial_size), dtype=view_into_raw_data.dtype)
+    all_imgs = np.empty((view_into_data.shape[0], *new_spatial_size), dtype=view_into_data.dtype)
 
     print("resizing started...")
-    for t in range(view_into_raw_data.shape[0]):
-        all_raws[t] = (
-            np.array(resize(view_into_raw_data[t], new_spatial_size, preserve_range=True))
+    for t in range(view_into_data.shape[0]):
+        all_imgs[t] = (
+            np.array(resize(view_into_data[t], new_spatial_size, preserve_range=True, order = 0 if is_resizing_masks else 1))
             if do_scaling
-            else np.array(view_into_raw_data[t], dtype=view_into_raw_data.dtype)
-        )
-        all_masks[t] = (
-            np.array(
-                resize(
-                    view_into_seg_data[t],
-                    new_spatial_size,
-                    preserve_range=True,
-                    order=0,
-                )
-            )
-            if do_scaling
-            else np.array(view_into_seg_data[t], dtype=view_into_seg_data.dtype)
+            else np.array(view_into_data[t], dtype=view_into_data.dtype)
         )
         print(
-            f"done resizing frame {t}, target image size was {all_raws[t].shape} "
-            f"(source size was {view_into_raw_data[t].shape})"
+            f"done resizing frame {t}, target image size was {all_imgs[t].shape} "
+            f"(source size was {view_into_data[t].shape})"
         )
 
     print("resizing done")
-    return all_raws, all_masks
+    return all_imgs
 
 
 def tracking(
@@ -267,7 +251,8 @@ def track_entry__seg_zarr(
     # NB: now both *_data_view are guaranteed to be ordered as tzyx
     #     and it is truly an unmodified view (not scaled, not trimmed)
 
-    raw, seg = resize(raw_data_view, seg_data_view, tracking_options)
+    raw = resize(raw_data_view, tracking_options, is_resizing_masks = False)
+    seg = resize(seg_data_view, tracking_options, is_resizing_masks = True)
     return track_entry(raw, seg, tracking_options)
 
 
@@ -295,7 +280,7 @@ def track_entry__seg_tiff(
         scale_level,
         list_of_coords_for_non_tzyx_dims_to_reach_raw_channel,
     )
-    raw = resize(raw_data_view, is_resizing_masks = False, tracking_options)
+    raw = resize(raw_data_view, tracking_options, is_resizing_masks = False)
 
     seg = obtain_size_adjusted_imgs_from_tiff_path(
         tiffs_path,
