@@ -248,7 +248,7 @@ def track_entry__seg_zarr(
     tracking_options: dict[str, Any] = default_tracking_options,
 ):
     """
-    Track from raw + pre-segmented OME-Zarr channels.
+    Track from raw + pre-segmented OME-Zarr channels (two channels required).
 
     It is worthwhile to choose 'scale_level' or downscale in x,y,z
     (in 'tracking_options') so that the input images are not more
@@ -268,6 +268,43 @@ def track_entry__seg_zarr(
     #     and it is truly an unmodified view (not scaled, not trimmed)
 
     raw, seg = resize(raw_data_view, seg_data_view, tracking_options)
+    return track_entry(raw, seg, tracking_options)
+
+
+def track_entry__seg_tiff(
+    zarr_path: str,
+    scale_level: int,
+    list_of_coords_for_non_tzyx_dims_to_reach_raw_channel: list[int],
+    tiffs_path: str,
+    result_path: str,
+    tracking_options: dict[str, Any] = default_tracking_options,
+):
+    """
+    Track from raw OME-Zarr channel + series of TIFFs with pre-segmented data.
+
+    It is worthwhile to choose 'scale_level' or downscale in x,y,z
+    (in 'tracking_options') so that the input images are not more
+    than 500+ pixels per spatial dimension.
+
+    The input TIFFs will be potentially resized to match the size of
+    the prepared (selected scale, additionally and optionally down-scaled)
+    raw images.
+    """
+    raw_data_view = obtain_lazy_view_from_the_zarr_path(
+        zarr_path,
+        scale_level,
+        list_of_coords_for_non_tzyx_dims_to_reach_raw_channel,
+    )
+    raw = resize(raw_data_view, is_resizing_masks = False, tracking_options)
+
+    seg = obtain_size_adjusted_imgs_from_tiff_path(
+        tiffs_path,
+        raw_data_view.shape,
+        tracking_options,
+    )
+    # NB: now both 'raw' and 'seg' are guaranteed to be ordered as tzyx
+    #     and it is truly an unmodified view (not scaled, not trimmed)
+
     return track_entry(raw, seg, tracking_options)
 
 
