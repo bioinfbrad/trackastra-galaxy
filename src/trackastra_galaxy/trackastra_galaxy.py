@@ -239,7 +239,7 @@ def upscale_timeshift_save(
     graph_to_ctc(track_graph, seg, True, outdir=result_path)
 
 
-def track_entry(
+def track_entry__seg_zarr(
     zarr_path: str,
     scale_level: int,
     list_of_coords_for_non_tzyx_dims_to_reach_raw_channel: list[int],
@@ -268,6 +268,10 @@ def track_entry(
     #     and it is truly an unmodified view (not scaled, not trimmed)
 
     raw, seg = resize(raw_data_view, seg_data_view, tracking_options)
+    return track_entry(raw, seg, tracking_options)
+
+
+def track_entry(raw, seg, tracking_options):
     track_graph = tracking(raw, seg, tracking_options)
     upscale_timeshift_save(track_graph, seg, result_path, tracking_options)
     return track_graph
