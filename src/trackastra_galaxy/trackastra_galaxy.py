@@ -98,6 +98,283 @@ def obtain_lazy_view_from_the_zarr_path(
     return view
 
 
+def obtain_size_adjusted_imgs_from_tiff_path(
+    input_path: str,
+    skip_frames: int = 0,
+    target_shape: list[int],
+    tracking_options: dict[str, Any] = None,
+):
+    """
+    This method reads segmentation masks from either one multi-frame
+    tiff file, which shall be 3(4)-dimensional for 2(3)D time-lapse
+    input, or from series of single-frame tiff files, which shall be
+    2(3)-dimensional for 2(3)D time-lapse input. The function resizes
+    only along spatial axes to fit the 'target_shape' size in pixels,
+    nearest neighbor (no interpolation) is used during the resizing.
+
+    The first 'skip_frames' segmentation images are skipped over (ignored)
+    before the loading starts. This is useful if the segmentation is prepared
+    for a full original time-lapse but only 'tracking_options.start_from_tp'
+    to 'tracking_options.end_at_tp' time points are tracked, in which case
+    provide 'skip_frames = tracking_options.start_from_tp'. Otherwise, set
+    it to 0 (zero) to have nothing skipped. Value of 0 (zero) is useful when,
+    again, a shorter sub-sequence of the original time-lapse is tracked, but
+    the segmentation is prepared only for this sub-sequence.
+
+    The function returns a numpy array of the 'target_shape'.
+
+    input_path :
+        Path to a multi-frame (one) tiff file,
+        or path to a folder with many single-frame tiff files.
+
+    skip_frames :
+        Number of time points to skip at the path. These time
+        points (frames) are the first "slices" in a multi-frame
+        tiff file, or it is the first number of single-frame tiff
+        files in the folder.
+
+    target_shape :
+        Quadruple of (T,Z,Y,X) (using Z=1 for 2D images). The loaded
+        images (whose number shall be T) may are resized (scaled,
+        no interpolation) to match the spatial part of the quadruple.
+
+    tracking_options :
+        This is either None or a copy of the 'default_tracking_options',
+        and it is provided only for checking the consistency of inputs.
+        It checks that the time span in 'tracking_options' matches T from
+        the 'target_shape' quadruple.
+    """
+
+    if len(target_shape) != 4:
+        flag_error_and_quit(
+            f"Reference geometry/shape of the input is {target_shape} "
+            "but was expected to be of length 4 (T,Z,Y,X)"
+        )
+
+    # trim (along the time axis) the input data
+    t_from = tracking_options.get("start_from_tp", 0)
+    t_to = tracking_options.get("end_at_tp", -1)
+    if t_to == -1:
+        t_to = target_shape.shape[0] - 1
+
+    # check consistency that required shape matches tracking_options
+    time_points_number = target_shape[0]
+    if (t_to - t_from +1) != time_points_number:
+        flag_error_and_quit(
+            f"Expected to extract {t_from} to {t_to} frames while "
+            f"aiming to squeeze the data to target_shape {target_shape}, "
+            f"which mandates {time_points_number} frames"
+        )
+
+    import os
+    if os.path.isdir(input_path):
+        return obtain_size_adjusted_imgs_from_one_tiff(input_path, skip_frames, target_shape)
+    else:
+        tiff_files_paths = sorted([ f.path
+            for f in os.scandir(input_path)
+            if f.is_file() and f.name.endswith((".tif",".tiff")) ])
+
+        tiff_files_paths = tiff_files_paths[ skip_frames : skip_frames+target_shape[0] ]
+
+        discovered_files = len(tiff_files_paths)
+        if discovered_files == 0:
+            flag_error_and_quit(
+                f"single-frame tiff: Found no .tif or .tiff in the folder {input_path}"
+            )
+        if discovered_files < (skip_frames+target_shape[0]):
+            flag_error_and_quit(
+                f"single-frame tiff: Found only {discovered_files}, which is not enough "
+                f"to load {target_shape[0]} files while skipping {skip_frames} files"
+            )
+
+        return obtain_size_adjusted_imgs_from_tiffs(tiff_files_paths, target_shape)
+
+
+def obtain_size_adjusted_imgs_from_one_tiff(
+    input_path: str,
+    skip_frames: int = 0,
+    target_shape: list[int],
+):
+    """
+    An internal function to implement 'obtain_size_adjusted_imgs_from_tiff_path()'
+    for multi-frame (one) tiff image given in the 'input_path'.
+    """
+    from skimage.io import imread
+    from skimage.transform import resize
+
+    print(f"multi-frame tiff: reading {input_path}")
+    img = imread(input_path)
+
+    # check dimensions:
+    if not (len(img.shape) == 3 or len(img.shape) == 4):
+        flag_error_and_quit(
+            f"multi-frame tiff: Input image {input_path} is of shape {img.shape} "
+            "that is not 3- or 4-dimensional (2D+t or 3D+t)"
+        )
+    if len(img.shape) == 3 and not target_shape[1] == 1:
+        flag_error_and_quit(
+            f"multi-frame tiff: Input image {input_path} is of shape {img.shape} "
+            f"for 2D+t but 3D+t was needed (target T,Z,Y,X = {target_shape})"
+        )
+    if img.shape[0] < (skip_frames+target_shape[0]):
+        flag_error_and_quit(
+            f"multi-frame tiff: Found only {img.shape[0]}, which is not enough "
+            f"to load {target_shape[0]} files while skipping {skip_frames} files"
+        )
+
+    is_x_resize_needed = img.shape[-1] != target_shape[-1]
+    is_y_resize_needed = img.shape[-2] != target_shape[-2]
+    if is_x_resize_needed != is_y_resize_needed:
+        flag_error_and_quit(
+            f"multi-frame tiff: Reference tiff image of shape {img.shape}, but "
+            f"target_shape {target_shape} requires to resize only x or y, "
+            "both should be required (or not) at the same time!"
+        )
+
+    # NB: the is_[xy]_resize* are now for sure of the same value, check z_resize if 3D+t images
+    is_z_resize_needed = img.shape[1] != target_shape[1] if len(img.shape) == 4 else is_x_resize_needed
+    if is_x_resize_needed != is_z_resize_needed:
+        flag_error_and_quit(
+            f"multi-frame tiff: Reference tiff image of shape {img.shape}, but "
+            f"target_shape {target_shape} requires to resize only x or z, "
+            "both should be required (or not) at the same time!"
+        )
+
+    # to be allocated later
+    all_masks = None
+
+    if is_x_resize_needed:
+        print("multi-frame tiff: memory allocation for segmentation results started...")
+        all_masks = np.empty(target_shape, dtype=img.dtype)
+
+        if target_shape[1] == 1:
+            # 2D
+            new_size = target_shape[2:]
+            for t in range(time_points_number):
+                all_masks[t,0] = resize(
+                    img[t + skip_frames],
+                    new_size,
+                    preserve_range=True,
+                    order=0,
+                )
+                print(f"multi-frame tiff: done resizing frame {t}, target image size was {new_size}")
+        else:
+            # 3D
+            new_size = target_shape[1:]
+            for t in range(time_points_number):
+                all_masks[t] = resize(
+                    img[t + skip_frames],
+                    new_size,
+                    preserve_range=True,
+                    order=0,
+                )
+                print(f"multi-frame tiff: done resizing frame {t}, target image size was {new_size}")
+    else:
+        print("multi-frame tiff: taking its memory as is...")
+        all_masks = img[skip_frames : skip_frames+time_points_number]
+
+    return all_masks
+
+
+
+def obtain_size_adjusted_imgs_from_tiffs(
+    input_paths: list[str],
+    target_shape: list[int],
+):
+    """
+    An internal function to implement 'obtain_size_adjusted_imgs_from_tiff_path()'
+    for several single-frame tiff images given in the 'input_paths' list.
+    """
+    from skimage.io import imread
+    from skimage.transform import resize
+
+    print(f"single-frame tiff: reading the first image {input_paths[0]}")
+    img = imread(input_paths[0])
+
+    # check dimensions:
+    if not (len(img.shape) == 2 or len(img.shape) == 3):
+        flag_error_and_quit(
+            f"single-frame tiff: Input image {input_paths[0]} is of shape {img.shape} "
+            "that is not 2- or 3-dimensional (2D or 3D)"
+        )
+    if len(img.shape) == 2 and not target_shape[1] == 1:
+        flag_error_and_quit(
+            f"single-frame tiff: Input image {input_paths[0]} is of shape {img.shape} "
+            f"for 2D+t but 3D+t was needed (target T,Z,Y,X = {target_shape})"
+        )
+    if len(input_paths) < (target_shape[0]):
+        flag_error_and_quit(
+            f"single-frame tiff: List of input images is not long enough "
+            f"to load {target_shape[0]} required files"
+        )
+
+    is_x_resize_needed = img.shape[-1] != target_shape[-1]
+    is_y_resize_needed = img.shape[-2] != target_shape[-2]
+    if is_x_resize_needed != is_y_resize_needed:
+        flag_error_and_quit(
+            f"single-frame tiff: Tiff images of shape {img.shape}, but "
+            f"target_shape {target_shape} requires to resize only x or y, "
+            "both should be required (or not) at the same time!"
+        )
+
+    # NB: the is_[xy]_resize* are now for sure of the same value, check z_resize if 3D+t images
+    is_z_resize_needed = img.shape[0] != target_shape[1] if len(img.shape) == 3 else is_x_resize_needed
+    if is_x_resize_needed != is_z_resize_needed:
+        flag_error_and_quit(
+            f"single-frame tiff: Tiff images of shape {img.shape}, but "
+            f"target_shape {target_shape} requires to resize only x or z, "
+            "both should be required (or not) at the same time!"
+        )
+
+    # 'all_masks' will be in the new downscaled size, and the trimmed length!
+    print("single-frame tiff: memory allocation for segmentation results started...")
+    all_masks = np.empty(target_shape, dtype=img.dtype)
+
+    if target_shape[1] == 1:
+        # 2D
+        new_size = target_shape[2:]
+        for t in range(time_points_number):
+            # don't read the first image again
+            if t > 0:
+                print(f"single-frame tiff: reading image {input_paths[t]}")
+                img = imread(input_paths[t])
+
+            if is_x_resize_needed:
+                all_masks[t,0] = resize(
+                    img,
+                    new_size,
+                    preserve_range=True,
+                    order=0,
+                )
+                print(f"single-frame tiff: done resizing frame {t}, target image size was {new_size}")
+            else:
+                all_masks[t,0] = img
+                print(f"single-frame tiff: done taking frame {t} as is")
+    else:
+        # 3D
+        new_size = target_shape[1:]
+        for t in range(time_points_number):
+            # don't read the first image again
+            if t > 0:
+                print(f"single-frame tiff: reading image {input_paths[t]}")
+                img = imread(input_paths[t])
+
+            if is_x_resize_needed:
+                all_masks[t] = resize(
+                    img,
+                    new_size,
+                    preserve_range=True,
+                    order=0,
+                )
+                print(f"single-frame tiff: done resizing frame {t}, target image size was {new_size}")
+            else:
+                all_masks[t] = img
+                print(f"single-frame tiff: done taking frame {t} as is")
+
+    return all_masks
+
+
+
 def resize(
     view_into_data,  # a numpy-like array
     tracking_options: dict[str, Any] = default_tracking_options,
