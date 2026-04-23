@@ -97,93 +97,6 @@ def obtain_lazy_view_from_the_zarr_path(
     return view
 
 
-def segmentation(
-    view_into_raw_data,  # a numpy-like array
-    tracking_options: dict[str, Any] = default_tracking_options
-):
-    """
-    Input 'view_into_raw_data' must be t,z,y,x even for 2D+t images.
-
-    Output is a (possibly very large!) numpy array with segmentation masks ('all_masks'),
-    and the corresponding view ('all_raw') of the 'view_into_raw_data'. Both outputs
-    are (down-)scaled already if that is requested in the 'tracking_options'.
-
-    Returns:
-        all_raws, all_masks
-    Both are trimmed and optionally downscaled.
-    """
-    from cellpose import models as cp3_models
-    from skimage.transform import resize
-
-    model_name = tracking_options.get("segmentation_model", "cyto3")
-    seg_model = cp3_models.CellposeModel(model_type=model_name)
-
-    do_3d = view_into_raw_data.shape[1] > 1
-    print(f"seg model initiated, going to do 3D: {do_3d}")
-    print(
-        f"provided input data: {view_into_raw_data.shape[0]} images of shape "
-        f"{view_into_raw_data.shape[1:]} pixels"
-    )
-
-    # figure out the (possibly) downscaled spatial size (zyx axes)
-    down_scale_factors = [
-        tracking_options.get("downscale_factor_z", 1),
-        tracking_options.get("downscale_factor_y", 1),
-        tracking_options.get("downscale_factor_x", 1),
-    ]
-    new_spatial_size = [
-        ceil(size / scale) for size, scale in zip(view_into_raw_data[0].shape, down_scale_factors)
-    ]
-
-    do_scaling = min(down_scale_factors) != 1 or max(down_scale_factors) != 1
-    print(f"seg, going to scale images: {do_scaling}")
-
-    # trim (along the time axis) the input data
-    t_from = tracking_options.get("start_from_tp", 0)
-    t_to = tracking_options.get("end_at_tp", -1)
-    if t_to == -1:
-        t_to = view_into_raw_data.shape[0] - 1
-
-    view_into_raw_data = view_into_raw_data[t_from : t_to + 1]
-    print(
-        f"preparing new input data: {view_into_raw_data.shape[0]} images of shape "
-        f"{new_spatial_size} pixels"
-    )
-
-    # 'all_masks' and 'all_raws' will be in the new downscaled size, and of the trimmed length!
-    print("memory allocation for segmentation results started...")
-    all_masks = np.empty((view_into_raw_data.shape[0], *new_spatial_size), dtype="uint16")
-
-    print("memory allocation for raw images started...")
-    all_raws = np.empty((view_into_raw_data.shape[0], *new_spatial_size), dtype=view_into_raw_data.dtype)
-
-    diameter = tracking_options.get("objects_diameter_px", 25)
-    print(f"segmenting started... (diameter={diameter})")
-
-    for t in range(view_into_raw_data.shape[0]):
-        img = (
-            np.array(resize(view_into_raw_data[t], new_spatial_size, preserve_range=True))
-            if do_scaling
-            else np.array(view_into_raw_data[t], dtype=view_into_raw_data.dtype)
-        )
-
-        masks, _, _ = seg_model.eval(
-            [img],
-            channels=[0, 0],
-            diameter=diameter,
-            z_axis=0,
-            do_3D=do_3d,
-            normalize=True,
-        )
-        print(f"done segmenting frame {t}, input image size was {img.shape}")
-
-        all_masks[t] = masks[0]
-        all_raws[t] = img
-
-    print("segmenting done")
-    return all_raws, all_masks
-
-
 def resize(
     view_into_raw_data,  # a numpy-like array
     view_into_seg_data,  # a numpy-like array
@@ -324,34 +237,6 @@ def upscale_timeshift_save(
 
     upscale_and_timeshift_trackastra_graph(track_graph, tracking_options)
     graph_to_ctc(track_graph, seg, True, outdir=result_path)
-
-
-def segment_and_track_entry(
-    zarr_path: str,
-    scale_level: int,
-    list_of_coords_for_non_tzyx_dims_to_reach_raw_channel: list[int],
-    result_path: str,
-    tracking_options: dict[str, Any] = default_tracking_options,
-):
-    """
-    Segment then track from a raw OME-Zarr channel.
-
-    It is worthwhile to choose 'scale_level' or downscale in x,y,z
-    (in 'tracking_options') so that the input images are not more
-    than 500+ pixels per spatial dimension.
-    """
-    raw_data_view = obtain_lazy_view_from_the_zarr_path(
-        zarr_path,
-        scale_level,
-        list_of_coords_for_non_tzyx_dims_to_reach_raw_channel,
-    )
-    # NB: now the raw_data_view is guaranteed to be ordered as tzyx
-    #     and it is truly an unmodified view (not scaled, not trimmed)
-
-    raw, seg = segmentation(raw_data_view, tracking_options)
-    track_graph = tracking(raw, seg, tracking_options)
-    upscale_timeshift_save(track_graph, seg, result_path, tracking_options)
-    return track_graph
 
 
 def track_entry(
