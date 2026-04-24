@@ -539,6 +539,7 @@ def track_entry__seg_tiff(
     scale_level: int,
     list_of_coords_for_non_tzyx_dims_to_reach_raw_channel: list[int],
     tiffs_path: str,
+    skip_frames: int,
     result_path: str,
     tracking_options: dict[str, Any] = default_tracking_options,
 ):
@@ -551,7 +552,12 @@ def track_entry__seg_tiff(
 
     The input TIFFs will be potentially resized to match the size of
     the prepared (selected scale, additionally and optionally down-scaled)
-    raw images.
+    raw images. When tracking in only a time points sub-interval (as
+    compared to the original OME-Zarr raw channel), a series of TIFFs can
+    be prepared only for that interval, in which case use 'skip_frames = 0'.
+    If, however, TIFFs for all original time points are available, use
+    'skip_frames = tracking_options.start_from_tp' to "rewind" to the
+    corresponding TIFFs.
     """
     raw_data_view = obtain_lazy_view_from_the_zarr_path(
         zarr_path,
@@ -562,7 +568,8 @@ def track_entry__seg_tiff(
 
     seg = obtain_size_adjusted_imgs_from_tiff_path(
         tiffs_path,
-        raw_data_view.shape,
+        skip_frames,
+        raw.shape,
         tracking_options,
     )
     # NB: now both 'raw' and 'seg' are guaranteed to be ordered as tzyx
