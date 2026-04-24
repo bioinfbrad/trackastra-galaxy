@@ -70,7 +70,8 @@ def obtain_lazy_view_from_the_zarr_path(
 
     if len(axes_unknown) != len(list_of_coords_for_non_tzyx_dims):
         flag_error_and_quit(
-            f"Found {len(axes_unknown)} non_tzyx dimensions but different number "
+            f"Found {len(axes_unknown)} non_tzyx dimensions (size of the first "
+            f"is {zarr_image.shape[ axes_unknown[0] ]}) but different number "
             f"({len(list_of_coords_for_non_tzyx_dims)}) of values for them"
         )
 
