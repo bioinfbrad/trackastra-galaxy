@@ -16,7 +16,6 @@ authors = [
 dependencies = [
   "ome-zarr>=0.14.0",
   "scikit-image",
-  "cellpose<4.0",
   "trackastra>0.5"
 ]
 
