@@ -16,7 +16,8 @@ authors = [
 dependencies = [
   "ome-zarr>=0.14.0",
   "scikit-image",
-  "trackastra>0.5"
+  "trackastra>0.5",
+  "natsort"
 ]
 
 classifiers = [

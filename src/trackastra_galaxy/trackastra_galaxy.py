@@ -167,14 +167,13 @@ def obtain_size_adjusted_imgs_from_tiff_path(
         )
 
     import os
-    if os.path.isdir(input_path):
+    if not os.path.isdir(input_path):
         return obtain_size_adjusted_imgs_from_one_tiff(input_path, skip_frames, target_shape)
     else:
-        tiff_files_paths = sorted([ f.path
+        from natsort import natsorted
+        tiff_files_paths = natsorted([ f.path
             for f in os.scandir(input_path)
             if f.is_file() and f.name.endswith((".tif",".tiff")) ])
-
-        tiff_files_paths = tiff_files_paths[ skip_frames : skip_frames+target_shape[0] ]
 
         discovered_files = len(tiff_files_paths)
         if discovered_files == 0:
@@ -187,6 +186,7 @@ def obtain_size_adjusted_imgs_from_tiff_path(
                 f"to load {target_shape[0]} files while skipping {skip_frames} files"
             )
 
+        tiff_files_paths = tiff_files_paths[ skip_frames : skip_frames+target_shape[0] ]
         return obtain_size_adjusted_imgs_from_tiffs(tiff_files_paths, target_shape)
 
 
@@ -199,7 +199,7 @@ def obtain_size_adjusted_imgs_from_one_tiff(
     An internal function to implement 'obtain_size_adjusted_imgs_from_tiff_path()'
     for multi-frame (one) tiff image given in the 'input_path'.
     """
-    from skimage.io import imread
+    from tifffile import imread
     from skimage.transform import resize
 
     print(f"multi-frame tiff: reading {input_path}")
@@ -242,6 +242,7 @@ def obtain_size_adjusted_imgs_from_one_tiff(
 
     # to be allocated later
     all_masks = None
+    time_points_number = target_shape[0]
 
     if is_x_resize_needed:
         print("multi-frame tiff: memory allocation for segmentation results started...")
@@ -272,6 +273,9 @@ def obtain_size_adjusted_imgs_from_one_tiff(
     else:
         print("multi-frame tiff: taking its memory as is...")
         all_masks = img[skip_frames : skip_frames+time_points_number]
+        if target_shape[1] == 1:
+            # assumed tyx, inject singleton z
+            all_masks = np.reshape(all_masks, (all_masks.shape[0], 1, all_masks.shape[1], all_masks.shape[2]))
 
     return all_masks
 
@@ -285,7 +289,7 @@ def obtain_size_adjusted_imgs_from_tiffs(
     An internal function to implement 'obtain_size_adjusted_imgs_from_tiff_path()'
     for several single-frame tiff images given in the 'input_paths' list.
     """
-    from skimage.io import imread
+    from tifffile import imread
     from skimage.transform import resize
 
     print(f"single-frame tiff: reading the first image {input_paths[0]}")
@@ -329,6 +333,7 @@ def obtain_size_adjusted_imgs_from_tiffs(
     # 'all_masks' will be in the new downscaled size, and the trimmed length!
     print("single-frame tiff: memory allocation for segmentation results started...")
     all_masks = np.empty(target_shape, dtype=img.dtype)
+    time_points_number = target_shape[0]
 
     if target_shape[1] == 1:
         # 2D
@@ -349,7 +354,7 @@ def obtain_size_adjusted_imgs_from_tiffs(
                 print(f"single-frame tiff: done resizing frame {t}, target image size was {new_size}")
             else:
                 all_masks[t,0] = img
-                print(f"single-frame tiff: done taking frame {t} as is")
+                print(f"single-frame tiff: done taking frame {t} as is (size is {img.shape})")
     else:
         # 3D
         new_size = target_shape[1:]
@@ -369,7 +374,7 @@ def obtain_size_adjusted_imgs_from_tiffs(
                 print(f"single-frame tiff: done resizing frame {t}, target image size was {new_size}")
             else:
                 all_masks[t] = img
-                print(f"single-frame tiff: done taking frame {t} as is")
+                print(f"single-frame tiff: done taking frame {t} as is (size is {img.shape})")
 
     return all_masks
 
