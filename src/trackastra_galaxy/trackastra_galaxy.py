@@ -100,7 +100,7 @@ def obtain_lazy_view_from_the_zarr_path(
 
 def obtain_size_adjusted_imgs_from_tiff_path(
     input_path: str,
-    skip_frames: int = 0,
+    skip_frames: int,
     target_shape: list[int],
     tracking_options: dict[str, Any] = None,
 ):
@@ -192,7 +192,7 @@ def obtain_size_adjusted_imgs_from_tiff_path(
 
 def obtain_size_adjusted_imgs_from_one_tiff(
     input_path: str,
-    skip_frames: int = 0,
+    skip_frames: int,
     target_shape: list[int],
 ):
     """
